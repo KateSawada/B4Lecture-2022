@@ -1,14 +1,17 @@
 import pickle
 import os
-
+import datetime
 
 from tensorflow.python.keras import models
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix, accuracy_score
 import librosa
 from keras.utils import np_utils
 
+SAMPLING_RATE = 8000  # by wave format data
+LABELS = 10  # number of labels to classify
 DATA_LENGTH = 4096
 
 
@@ -25,7 +28,7 @@ def load_wav_test():
         with open('ans_test.pickle', 'rb') as f:
             label = pickle.load(f)
     else:
-        test_csv = pd.read_csv("../test.csv", dtype=str, encoding='utf8')
+        test_csv = pd.read_csv("./test_truth.csv", dtype=str, encoding='utf8')
         wav = np.zeros((len(test_csv), DATA_LENGTH))
         label = np.zeros(len(test_csv), dtype=np.int16)
         for i, row in test_csv.iterrows():
@@ -45,7 +48,7 @@ def load_wav_test():
 
 def main():
     # read data
-    x, answer_label = load_wav_train()
+    x, answer_label = load_wav_test()
 
     # convert to mfcc
     tmp_test = []
@@ -67,8 +70,36 @@ def main():
     # accuracy
     collect_count = np.count_nonzero(answer_label == predict)
     all_count = len(answer_label)
-    print(f"accuracy: {(collect_count / answer_label)}")
+    accuracy = accuracy_score(answer_label, predict)
+    print(f"accuracy: {(accuracy)}")
     print(f"        ( {collect_count} / {all_count} )")
+
+    # plot result
+    fig, ax = plt.subplots(1, 1, figsize=(12, 10))
+    labels = [i for i in range(LABELS)]
+    column_labels = [f"pred_{i}" for i in labels]
+    row_labels = [f"ans_{i}" for i in labels]
+
+    ax.set_title(
+        "test\n" +
+        f"acc:{accuracy:.6f}")
+    cm = confusion_matrix(answer_label, predict,
+                                  labels=labels)
+    ax.pcolor(cm, cmap=plt.cm.Blues)
+    for (i, j), z in np.ndenumerate(cm):
+        ax.text(j + 0.5, i + 0.5, '{}'.format(z),
+                   ha='center', va='center', color="orange")
+
+    ax.set_xticks(np.arange(cm.shape[0]) + 0.5, minor=False)
+    ax.set_yticks(np.arange(cm.shape[1]) + 0.5, minor=False)
+
+    ax.invert_yaxis()
+    ax.xaxis.tick_top()
+
+    ax.set_xticklabels(row_labels, minor=False)
+    ax.set_yticklabels(column_labels, minor=False)
+
+    plt.savefig(f"result{datetime.datetime.now()}.png")
 
 
 if __name__ == "__main__":
